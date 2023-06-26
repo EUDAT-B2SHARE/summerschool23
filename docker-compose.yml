@@ -41,12 +41,13 @@ services:
         volumes:
             - "${B2SHARE_DATADIR}/b2share-data:/usr/var/b2share-instance"
             # - "b2share-data:/usr/var/b2share-instance"
-            # Summer school demo data
-            - "./demo:/eudat/demo"
-            - "./demo/img:/eudat/b2share/webui/app/img/communities"
             - "./elasticsearch/mappings/record-view:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/record_view/v2"
             - "./elasticsearch/mappings/file-download:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/file_download/v2"
             - "./elasticsearch/mappings/record-view-agg:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/aggregations/aggr_record_view/v2"
+            # Summer school demo data
+            - "./demo:/eudat/demo"
+            - "./demo/config.py:/eudat/b2share/b2share/config.py"
+            - "./demo/img:/eudat/b2share/webui/app/img/communities"
         profiles:
           - "helpers"
         depends_on:
@@ -104,15 +105,16 @@ services:
           - "helpers"
 
     b2share-demo:
-        extends: b2share-tools
-        # Initializes B2SHARE before first run
+        extends: b2share-base
+        # Add demo content to B2SHARE instance db.
         command:
         - /bin/sh
         - -c
         - |
-            pip3 install flask_shell_ipython==0.3.1
             # Create EUDAT community
-            b2share shell < /eudat/demo/add_eudat_community.py
+            b2share shell <<< "exec(open('/eudat/demo/add_eudat_community.py').read())"
+            # Or with flask-shell-ipython installed.
+            # b2share shell <<< "%run /eudat/demo/add_eudat_community.py"
         profiles:
           - "helpers"
 
@@ -238,7 +240,7 @@ services:
             # - "elasticsearch-config:/usr/share/elasticsearch/config:rw"
         healthcheck:
             test: ["CMD-SHELL", "curl -s http://elasticsearch:9200 >/dev/null || exit 1"]
-            interval: 30s
+            interval: 10s
             timeout: 10s
             retries: 50
 
