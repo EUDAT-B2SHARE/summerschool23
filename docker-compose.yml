@@ -1,17 +1,23 @@
-version: '2.3'
+version: '3.8'
+# Notes
+# Use `docker compose up -d`
+# to start services that B2SHARE needs.
+# (Elasticsearch, RabbitMQ, Redis, PostgreSQL, NGINX)
+#
+# Use `docker compose run --rm b2share-init`
+# to initialize PostgreSQL database and Elasticsearch
+# search indices before first run of B2SHARE
+# 
+# Use `docker-compose --profile b2share up -d`
+# to start B2SHARE.
+# In detail, this command starts two 'b2share' application
+# instances, one serving REST API requests and providing WebUI content
+# another serving HTTP requests for file downloads and uploads. 
+# In addition, Celery and celery-beat applications are started
+# to handle handle background jobs initiated by B2SHARE.
+# 
 services:
-    postgres:
-        image: postgres:13
-        environment:
-            - "POSTGRES_PASSWORD=${B2SHARE_POSTGRESQL_PASSWORD}"
-            - "POSTGRES_USER=${B2SHARE_POSTGRESQL_USER}"
-            - "POSTGRES_DB=${B2SHARE_POSTGRESQL_DBNAME}"
-            - "PGDATA=/var/lib/postgresql/data"
-        volumes:
-            - "${B2SHARE_DATADIR}/postgres-data:/var/lib/postgresql/data"
-        expose:
-            - "5432"
-
+#---------------------- HELPERS --------------------#
     b2share-base:
         image: eudatb2share/b2share:2.2.5
         command:
@@ -36,21 +42,144 @@ services:
             - "B2SHARE_SEARCH_ELASTIC_HOSTS='elasticsearch'"
         volumes:
             - "${B2SHARE_DATADIR}/b2share-data:/usr/var/b2share-instance"
+            # - "b2share-data:/usr/var/b2share-instance"
             - "./elasticsearch/mappings/record-view:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/record_view/v2"
             - "./elasticsearch/mappings/file-download:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/file_download/v2"
             - "./elasticsearch/mappings/record-view-agg:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/aggregations/aggr_record_view/v2"
+        profiles:
+          - "helpers"
+        depends_on:
+            mq:
+                condition: service_healthy
+            elasticsearch:
+                condition: service_healthy
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            nginx:
+                condition: service_healthy
 
-    b2share:
+    b2share-init:
         extends: b2share-base
+        # Initializes B2SHARE before first run
         command:
-            - /eudat/b2share.sh
+        - /bin/sh
+        - -c
+        - |
+            # Initialize db and index...
+            /usr/local/bin/b2share db init
+            /usr/local/bin/b2share index init
+            /usr/local/bin/b2share upgrade run -v
+            /usr/local/bin/b2share files add-location 'local' file:///usr/var/b2share-instance/files --default
+        profiles:
+          - "helpers"
+
+#---------------------- B2SHARE --------------------#
+
+    b2share-api:
+        extends: b2share-base
+    #    command: "uwsgi --ini /eudat/b2share/uwsgi/uwsgi.ini"
+    #    command: "b2share run --host 0.0.0.0 --port 5000 --with-threads"
+        command:
+        - /bin/sh
+        - -c
+        - |
+            # Initialize db and index...
+            /usr/local/bin/b2share upgrade run -v
+            uwsgi --ini /eudat/b2share/uwsgi/uwsgi.ini
         expose:
             - "5000"
-        links:
-            - elasticsearch
-            - redis
-            - postgres
-            - mq
+        profiles:
+            - "b2share"
+        restart: unless-stopped
+
+    b2share-files:
+        extends: b2share-base
+        command:
+        - /bin/sh
+        - -c
+        - |
+            # Initialize db and index...
+            /usr/local/bin/b2share upgrade run -v
+            uwsgi --ini /eudat/b2share/uwsgi/uwsgi.ini
+        expose:
+            - "5000"
+        profiles:
+            - "b2share"
+        restart: unless-stopped
+
+    celery:
+        extends: b2share-base
+        # Logging from Celery to STDOUT is suppressed for some reason.
+        # `tail -f /tmp/celery_worker.log` is used to bring logs to `docker logs`
+        command: 
+        - /bin/sh
+        - -c
+        - |
+            touch /tmp/celery_worker.log
+            /usr/local/bin/celery worker -E -A b2share.celery \
+            --loglevel=INFO \
+            --pidfile=/tmp/celeryd.pid \
+            --workdir=/eudat/b2share \
+            --logfile=/tmp/celery_worker.log
+            tail -f /tmp/celery_worker.log &
+        # Since there are multiple processes init system needs to be provided
+        # to handle SIGNALS from host.
+        init: true
+        volumes:
+        - "${B2SHARE_DATADIR}/celery-worker-tmp:/tmp"
+        profiles:
+            - "b2share"
+        restart: unless-stopped
+
+    celery-beat:
+        extends: b2share-base
+        # Logging from Celery to STDOUT is suppressed for some reason.
+        # `tail -f /tmp/celery_beat.log` is used to bring logs to `docker logs`
+        command:
+        - /bin/sh
+        - -c
+        - |
+            touch /tmp/celery_beat.log
+            /usr/local/bin/celery beat -A b2share.celery \
+            -s /tmp/celerybeat-schedule \
+            --loglevel=DEBUG \
+            --pidfile=/tmp/celryd.pid \
+            --workdir=/eudat/b2share \
+            --logfile=/tmp/celery_beat.log
+            tail -f /tmp/celery_beat.log &
+        # Since there are multiple processes init system needs to be provided
+        # to handle SIGNALS from host.
+        init: true
+        volumes:
+        - "${B2SHARE_DATADIR}/celery-beat-tmp:/tmp"
+        profiles:
+            - "b2share"
+        restart: unless-stopped
+
+
+#---------------------- SERVICES --------------------#
+
+    postgres:
+        image: postgres:13
+        environment:
+            - "POSTGRES_PASSWORD=${B2SHARE_POSTGRESQL_PASSWORD}"
+            - "POSTGRES_USER=${B2SHARE_POSTGRESQL_USER}"
+            - "POSTGRES_DB=${B2SHARE_POSTGRESQL_DBNAME}"
+            - "PGDATA=/var/lib/postgresql/data"
+        volumes:
+            - "${B2SHARE_DATADIR}/postgres-data:/var/lib/postgresql/data"
+            # - "postgres-data:/var/lib/postgresql/data:rw"
+        expose:
+            - "5432"
+        healthcheck:
+            # Remember to use double dollar sign so Docker Compose doesn't try to
+            # replace the environment variables before execution of healthcheck command.
+            test: ["CMD-SHELL", "pg_isready --user $$POSTGRES_USER --db $$POSTGRES_DB"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
 
     elasticsearch:
         build: elasticsearch
@@ -64,6 +193,13 @@ services:
             - "9300"
         volumes:
             - "${B2SHARE_DATADIR}/elasticsearch-data:/usr/share/elasticsearch/data"
+            # - "elasticsearch-data:/usr/share/elasticsearch/data:rw"
+            # - "elasticsearch-config:/usr/share/elasticsearch/config:rw"
+        healthcheck:
+            test: ["CMD-SHELL", "curl -s http://elasticsearch:9200 >/dev/null || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 50
 
     redis:
         image: redis:5-alpine
@@ -71,6 +207,12 @@ services:
             - "6379"
         volumes:
             - "${B2SHARE_DATADIR}/redis-data:/data"
+            # - "redis-data:/data:rw"
+        healthcheck:
+            test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+            interval: 1s
+            timeout: 3s
+            retries: 10
 
     nginx:
         build: nginx
@@ -78,10 +220,13 @@ services:
         ports:
             - "80:80"
             - "443:443"
-        # volumes:
-        #     - "${B2SHARE_DATADIR}/nginx-data/ssl:/etc/ssl/"
-        links:
-            - b2share
+        volumes:
+            - "${B2SHARE_DATADIR}/nginx-data/ssl:/etc/ssl/"
+        healthcheck:
+            test: ["CMD-SHELL", "curl --silent --output /dev/null --fail http://localhost:80/health"]
+            interval: 1s
+            timeout: 1s
+            retries: 30
 
     mq:
         image: rabbitmq:3.8-management-alpine
@@ -93,6 +238,64 @@ services:
             - "5672"
         volumes:
             - "${B2SHARE_DATADIR}/rabbitmq-data:/var/lib/rabbitmq"
+            # - "rabbitmq-data:/var/lib/rabbitmq:rw"
+        healthcheck:
+            # `rabbitmq-diagnostics check_port_connectivity` will flood mq logs with info  messages.
+            test: ["CMD-SHELL", "rabbitmq-diagnostics is_running"]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+
+#---------------------- VOLUMES --------------------#
+# volumes:
+#     postgres-data:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/postgres-data
+#             o: bind
+#     elasticsearch-data:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/elasticsearch-data
+#             o: bind
+#     elasticsearch-config:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/elasticsearch-config
+#             o: bind
+#     rabbitmq-data:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/rabbitmq-data
+#             o: bind
+#     redis-data:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/redis-data
+#             o: bind
+#     b2share-data:
+#         driver: local
+#         driver_opts:
+#             type: none
+#             device: ${B2SHARE_DATADIR}/b2share-data
+#             o: bind
+
+#---------------------- FOR MAINTENANCE --------------------#
+
+    # backup:
+    #     build: backup
+    #     environment:
+    #         - "PGPASSWORD=${B2SHARE_POSTGRESQL_PASSWORD}"
+    #         - "POSTGRES_USER=${B2SHARE_POSTGRESQL_USER}"
+    #     volumes:
+    #         - "${B2SHARE_DATADIR}/db_dump:/usr/local/share/pgsql_dumps"
+
+#---------------------- FOR TROUBLESHOOTING --------------------#
 
     # b2share-test:
     #     extends: b2share-base
@@ -114,11 +317,3 @@ services:
     #         - redis
     #         - postgres
     #         - mq
-
-    # backup:
-    #     build: backup
-    #     environment:
-    #         - "PGPASSWORD=${B2SHARE_POSTGRESQL_PASSWORD}"
-    #         - "POSTGRES_USER=${B2SHARE_POSTGRESQL_USER}"
-    #     volumes:
-    #         - "${B2SHARE_DATADIR}/db_dump:/usr/local/share/pgsql_dumps"
