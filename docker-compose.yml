@@ -19,7 +19,7 @@ version: '3.8'
 services:
 #---------------------- HELPERS --------------------#
     b2share-base:
-        image: eudatb2share/b2share:2.2.5
+        image: eudatb2share/b2share:2.3.0
         command:
             - /bin/echo
         environment:
@@ -156,6 +156,7 @@ services:
         extends: b2share-base
         # Logging from Celery to STDOUT is suppressed for some reason.
         # `tail -f /tmp/celery_worker.log` is used to bring logs to `docker logs`
+        # Empty --pidfile is intentional.
         command: 
         - /bin/sh
         - -c
@@ -163,7 +164,7 @@ services:
             touch /tmp/celery_worker.log
             /usr/local/bin/celery worker -E -A b2share.celery \
             --loglevel=INFO \
-            --pidfile=/tmp/celeryd.pid \
+            --pidfile= \
             --workdir=/eudat/b2share \
             --logfile=/tmp/celery_worker.log
             tail -f /tmp/celery_worker.log &
@@ -180,6 +181,7 @@ services:
         extends: b2share-base
         # Logging from Celery to STDOUT is suppressed for some reason.
         # `tail -f /tmp/celery_beat.log` is used to bring logs to `docker logs`
+        # Empty --pidfile is intentional.
         command:
         - /bin/sh
         - -c
@@ -188,7 +190,7 @@ services:
             /usr/local/bin/celery beat -A b2share.celery \
             -s /tmp/celerybeat-schedule \
             --loglevel=DEBUG \
-            --pidfile=/tmp/celryd.pid \
+            --pidfile= \
             --workdir=/eudat/b2share \
             --logfile=/tmp/celery_beat.log
             tail -f /tmp/celery_beat.log &
