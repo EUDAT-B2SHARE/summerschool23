@@ -43,8 +43,9 @@ services:
         volumes:
             - "${B2SHARE_DATADIR}/b2share-data:/usr/var/b2share-instance"
             # - "b2share-data:/usr/var/b2share-instance"
-            # Summer school demo
+            # Summer school demo data
             - "./demo:/eudat/demo"
+            - "./demo/img:/eudat/b2share/webui/app/img/communities"
             - "./elasticsearch/mappings/record-view:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/record_view/v2"
             - "./elasticsearch/mappings/file-download:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/file_download/v2"
             - "./elasticsearch/mappings/record-view-agg:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/aggregations/aggr_record_view/v2"
@@ -79,7 +80,7 @@ services:
 
     b2share-reset:
         extends: b2share-base
-        # Initializes B2SHARE before first run
+        # Destroys B2SHARE database and search index content
         command:
         - /bin/sh
         - -c
@@ -92,7 +93,8 @@ services:
 
     b2share-tools:
         extends: b2share-base
-        # Initializes B2SHARE before first run
+        # Install flask-shell-ipython to improve b2share shell usability
+        # and starts an interactive bash prompt
         command:
         - /bin/sh
         - -c
@@ -100,6 +102,19 @@ services:
             # Install flask-shell-ipython
             pip3 install flask_shell_ipython==0.3.1
             bash
+        profiles:
+          - "helpers"
+
+    b2share-demo:
+        extends: b2share-tools
+        # Initializes B2SHARE before first run
+        command:
+        - /bin/sh
+        - -c
+        - |
+            pip3 install flask_shell_ipython==0.3.1
+            # Create EUDAT community
+            b2share shell < /eudat/demo/add_eudat_community.py
         profiles:
           - "helpers"
 
