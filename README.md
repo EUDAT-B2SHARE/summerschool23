@@ -22,6 +22,7 @@ docker-compose --profile b2share up -d
 
 ## Useful links
 
+ * [B2SHARE documentation](https://docs.eudat.eu/b2share)
  * [B2SHARE training module](https://github.com/EUDAT-Training/B2SHARE-Training/tree/master/deploy)
  * [B2SHARE install notes](https://github.com/EUDAT-B2SHARE/b2share/blob/evolution/INSTALL.rst)
 

@@ -43,6 +43,8 @@ services:
         volumes:
             - "${B2SHARE_DATADIR}/b2share-data:/usr/var/b2share-instance"
             # - "b2share-data:/usr/var/b2share-instance"
+            # Summer school demo
+            - "./demo:/eudat/demo"
             - "./elasticsearch/mappings/record-view:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/record_view/v2"
             - "./elasticsearch/mappings/file-download:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/file_download/v2"
             - "./elasticsearch/mappings/record-view-agg:/usr/local/lib/python3.6/site-packages/invenio_stats/contrib/aggregations/aggr_record_view/v2"
@@ -72,6 +74,32 @@ services:
             /usr/local/bin/b2share index init
             /usr/local/bin/b2share upgrade run -v
             /usr/local/bin/b2share files add-location 'local' file:///usr/var/b2share-instance/files --default
+        profiles:
+          - "helpers"
+
+    b2share-reset:
+        extends: b2share-base
+        # Initializes B2SHARE before first run
+        command:
+        - /bin/sh
+        - -c
+        - |
+            # Destroy db and index...
+            /usr/local/bin/b2share db destroy --yes-i-know
+            /usr/local/bin/b2share index destroy --yes-i-know
+        profiles:
+          - "helpers"
+
+    b2share-tools:
+        extends: b2share-base
+        # Initializes B2SHARE before first run
+        command:
+        - /bin/sh
+        - -c
+        - |
+            # Install flask-shell-ipython
+            pip3 install flask_shell_ipython==0.3.1
+            bash
         profiles:
           - "helpers"
 
