@@ -1,4 +1,4 @@
-FROM nginx:mainline-alpine
+FROM nginx:stable
 EXPOSE 80 443
 
 RUN rm /etc/nginx/conf.d/*.conf
