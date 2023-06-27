@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "Summer school Metadata Schema",
+    "description": "This is the blueprint of the metadata block specific for Summer school community",
+    "type": "object",
+    "properties": {
+        "participant_name": {
+            "title": "Summer school participant",
+            "description": "Name of the summer school participant.",
+            "type": "string"
+        },
+        "research_field": {
+            "title": "Participant research field",
+            "description": "Research field the summer school participant feels associated with.",
+            "type": "string"
+        }
+    },
+    "required": [
+      "participant_name", 
+      "research_field"
+    ],
+    "b2share": {
+      "presentation": {
+        "major": [
+          "participant_name", 
+          "research_field"
+        ]
+      }
+    },
+    "additionalProperties": false
+}

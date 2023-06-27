@@ -91,12 +91,13 @@ sudo docker compose run --rm b2share-reset
 
 ### B2SHARE Service set-up and administration
 
-Cannot login to your instance via B2ACCESS.
+If you cannot login to your instance via B2ACCESS.
 - Update your B2SHARE configuration with your B2ACCESS ***OIDC client credentials*** created in a previous training session.
   (`B2ACCESS_CONSUMER_KEY` and `B2ACCESS_SECRET_KEY` variables in your `.env` file)
 - Update your B2ACCESS OIDC client configuration with ***redirect url*** for your B2SHARE instance.
   (Done in B2ACCESS web UI)
 - Restart B2SHARE with `sudo docker compose --profile b2share up -d`
+
 
 #### Create your own community
 
@@ -108,16 +109,50 @@ sudo docker compose run --rm b2share-tools
 Then create a community with following command
 (path `./demo/` is already mounted to the container with summer.png logo.)
 ```bash 
-b2share communities create -v "Summer School 2023" "Community for Summer School 2023" "/eudat/b2share/webui/app/img/communities/summer.png"
+b2share communities create -v "Summer School" "Community for Summer School 2023" "/eudat/b2share/webui/app/img/communities/summer.png"
 ```
 
 You must assign a metadata schema for the created community.
 Example schema from `./demo/` folder is already mounted to container.
 ```bash
-b2share communities set_schema "Summer School 2023"
+b2share communities set_schema "Summer School 2023 /eudat/demo/summer_school.jsonschema"
 ```
 
 Now you can create records for the new community.
+
+
+#### Setting up harvesting with B2FIND
+
+
+
+#### Superadministrator rights
+
+Although you can define quite granular access rights in B2SHARE via Python APIs available with `b2share shell`, usually as an administrator you run into situations when it faster to give yourself super-administrator rights, which enable you to see and edit all records and drafts on a B2SHARE instance.
+
+Let's start by asking a friend to login to your B2SHARE instance and create a draft record.
+Record is left in a draft state when you don't publish it.
+By default, records in draft state can only be seen by creator of the record.
+In order to see the draft and its content you have to assign yourself super-administrator rights.
+
+Start by opening a bash prompt in B2SHARE container
+```
+sudo docker compose run --rm b2share-tools
+```
+
+Then run the following command. Change $USER_EMAIL to the actual email address of your B2SHARE user
+```
+b2share access allow -e ${USER_EMAIL} superuser-access
+```
+
+After assigning yourself superuser-access rights, you should be able to see the draft your friend created from B2SHARE Web UI.
+('Own drafts' link accessible from you profile page in 'https://vm0897.b2share.example.org/user')
+
+!!! Remember to revoke you superuser-access rights after you don't need them.
+Change $USER_EMAIL to the actual email address of your B2SHARE user.
+```
+b2share access remove -e ${USER_EMAIL} superuser-access
+```
+
 
 #### Change settings via config.py method
 
