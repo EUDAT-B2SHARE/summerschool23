@@ -19,16 +19,14 @@ version: '3.8'
 services:
 #---------------------- HELPERS --------------------#
     b2share-base:
-        image: eudatb2share/b2share:2.3.0
+        image: eudatb2share/b2share:2.2.5
         command:
             - /bin/echo
         environment:
             # If used with b2share configloader, add B2SHARE_ in front of every variable that does not allready have it
-            - "B2SHARE_B2ACCESS_CONSUMER_KEY=${B2ACCESS_CONSUMER_KEY}"
-            - "B2SHARE_B2ACCESS_SECRET_KEY=${B2ACCESS_SECRET_KEY}"
-            - "B2SHARE_CONFIG_ENABLE_B2ACCESS=${B2SHARE_CONFIG_ENABLE_B2ACCESS}"
-            - "B2SHARE_LOGGING_LEVEL=${B2SHARE_LOGGING_LEVEL}"
-            - "B2SHARE_USE_STAGING_B2ACCESS=${USE_STAGING_B2ACCESS}"
+            - "B2ACCESS_CONSUMER_KEY=${B2ACCESS_CONSUMER_KEY}"
+            - "B2ACCESS_SECRET_KEY=${B2ACCESS_SECRET_KEY}"
+            - "USE_STAGING_B2ACCESS=${USE_STAGING_B2ACCESS}"
             - "B2SHARE_SECRET_KEY=${B2SHARE_SECRET_KEY}"
             - "B2SHARE_JSONSCHEMAS_HOST=${B2SHARE_JSONSCHEMAS_HOST}"
             - "B2SHARE_PREFERRED_URL_SCHEME=https"
