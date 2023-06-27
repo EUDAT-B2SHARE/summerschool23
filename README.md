@@ -115,14 +115,20 @@ b2share communities create -v "Summer School" "Community for Summer School 2023"
 You must assign a metadata schema for the created community.
 Example schema from `./demo/` folder is already mounted to container.
 ```bash
-b2share communities set_schema "Summer School 2023 /eudat/demo/summer_school.jsonschema"
+b2share communities set_schema "Summer School" "/eudat/demo/summer_school.jsonschema"
 ```
 
 Now you can create records for the new community.
+Note that there are now required metadata fields in community specific metadata that you need to fill in before a record can be published.
 
 
 #### Setting up harvesting with B2FIND
 
+In order for B2FIND to harvest a B2SHARE instance OAI-PMH API endpoint needs to be communicated to B2FIND.
+B2FIND can selectively harvest just certain communities from a B2SHARE instance, and in the cases, UUID identifier of community needs to be communicated to B2FIND.
+
+OAI-PMH endpoint of a B2SHARE instance can be found under /api/oai2d (e.g `(https://b2share.eudat.eu/api/oai2d)`).
+Community UUID can be obtained from B2SHARE Web UI or through B2SHARE REST API. (e.g. `https://b2share.eudat.eu/communities/EUDAT`)
 
 
 #### Superadministrator rights
